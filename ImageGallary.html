@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Image Gallery with Lightbox</title>
+    <style>
+        /* --- 1. BASE STYLES & VARIABLES --- */
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --card-bg: #ffffff;
+            --overlay: rgba(15, 23, 42, 0.9);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding-top: 70px; /* Offset for sticky navbar */
+        }
+
+        /* --- 2. RESPONSIVE NAVIGATION BAR --- */
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 8%;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .logo span {
+            color: var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 25px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .menu-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+
+        .menu-toggle .bar {
+            height: 3px;
+            width: 25px;
+            background-color: var(--text);
+            border-radius: 2px;
+        }
+
+        /* --- 3. FILTER BUTTONS --- */
+        .filter-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 40px 8% 20px 8%;
+        }
+
+        .filter-btn {
+            background-color: var(--card-bg);
+            color: var(--text-muted);
+            border: 1px solid #e2e8f0;
+            padding: 8px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        /* --- 4. RESPONSIVE GRID LAYOUT & HOVER ANIMATIONS --- */
+        .gallery-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 8% 60px 8%;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 25px;
+        }
+
+        .gallery-item {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+            cursor: pointer;
+            position: relative;
+            height: 200px;
+            display: block; /* Modified dynamically by active tabs */
+            animation: fadeIn 0.4s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        /* Smooth hover overlay and zoom effect */
+        .gallery-item::after {
+            content: 'View Image';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(37, 99, 235, 0.7);
+            color: white;
+            font-weight: 600;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.1);
+        }
+
+        .gallery-item:hover::after {
+            opacity: 1;
+        }
+
+        /* --- 5. LIGHTBOX MODAL --- */
+        .lightbox {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--overlay);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+        }
+
+        .lightbox.active {
+            display: flex;
+        }
+
+        .lightbox-content {
+            position: relative;
+            max-width: 85%;
+            max-height: 80vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lightbox-content img {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 4px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            object-fit: contain;
+        }
+
+        /* Lightbox Controls */
+        .close-btn {
+            position: absolute;
+            top: -45px;
+            right: 0;
+            color: white;
+            font-size: 35px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+        }
+
+        .nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .prev-btn { left: -70px; }
+        .next-btn { right: -70px; }
+
+        /* --- 6. RESPONSIVE MEDIA QUERIES --- */
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: flex;
+            }
+
+            .nav-links {
+                position: absolute;
+                top: 60px;
+                left: -100%;
+                flex-direction: column;
+                background-color: #ffffff;
+                width: 100%;
+                padding: 20px;
+                gap: 15px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+                transition: left 0.3s ease;
+                text-align: center;
+            }
+
+            .nav-links.mobile-active {
+                left: 0;
+            }
+
+            .prev-btn { left: 10px; background: rgba(0,0,0,0.5); }
+            .next-btn { right: 10px; background: rgba(0,0,0,0.5); }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="logo">Lens<span>Gallery</span></div>
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle Menu">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </button>
+        <nav>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#">Home</a></li>
+                <li><a href="#">Gallery</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="filter-container">
+        <button class="filter-btn active" data-category="all">All</button>
+        <button class="filter-btn" data-category="nature">Nature</button>
+        <button class="filter-btn" data-category="cars">Cars</button>
+        <button class="filter-btn" data-category="animals">Animals</button>
+        <button class="filter-btn" data-category="food">Food</button>
+    </div>
+
+    <main class="gallery-container" id="galleryGrid">
+        <div class="gallery-item" data-category="nature"><img src="https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=400&q=75" alt="Nature 1"></div>
+        <div class="gallery-item" data-category="nature"><img src="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&q=75" alt="Nature 2"></div>
+        <div class="gallery-item" data-category="nature"><img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=75" alt="Nature 3"></div>
+        <div class="gallery-item" data-category="nature"><img src="https://images.unsplash.com/photo-1472214222541-d510753a4707?w=400&q=75" alt="Nature 4"></div>
+        <div class="gallery-item" data-category="nature"><img src="https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&q=75" alt="Nature 5"></div>
+
+        <div class="gallery-item" data-category="cars"><img src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=400&q=75" alt="Car 1"></div>
+        <div class="gallery-item" data-category="cars"><img src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=400&q=75" alt="Car 2"></div>
+        <div class="gallery-item" data-category="cars"><img src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=400&q=75" alt="Car 3"></div>
+        <div class="gallery-item" data-category="cars"><img src="https://images.unsplash.com/photo-1525609004556-c46c7d6cf0a3?w=400&q=75" alt="Car 4"></div>
+        <div class="gallery-item" data-category="cars"><img src="https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=400&q=75" alt="Car 5"></div>
+
+        <div class="gallery-item" data-category="animals"><img src="https://images.unsplash.com/photo-1474511320723-9a56873867b5?w=400&q=75" alt="Animal 1"></div>
+        <div class="gallery-item" data-category="animals"><img src="https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400&q=75" alt="Animal 2"></div>
+        <div class="gallery-item" data-category="animals"><img src="https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=400&q=75" alt="Animal 3"></div>
+        <div class="gallery-item" data-category="animals"><img src="https://images.unsplash.com/photo-1574063413132-355dbfd83e82?w=400&q=75" alt="Animal 4"></div>
+        <div class="gallery-item" data-category="animals"><img src="https://images.unsplash.com/photo-1564349683136-77e08dba1ef7?w=400&q=75" alt="Animal 5"></div>
+
+        <div class="gallery-item" data-category="food"><img src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&q=75" alt="Food 1"></div>
+        <div class="gallery-item" data-category="food"><img src="https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=400&q=75" alt="Food 2"></div>
+        <div class="gallery-item" data-category="food"><img src="https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=400&q=75" alt="Food 3"></div>
+        <div class="gallery-item" data-category="food"><img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=75" alt="Food 4"></div>
+        <div class="gallery-item" data-category="food"><img src="https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&q=75" alt="Food 5"></div>
+    </main>
+
+    <div class="lightbox" id="lightbox">
+        <div class="lightbox-content">
+            <button class="close-btn" id="closeBtn">&times;</button>
+            <button class="nav-btn prev-btn" id="prevBtn">&#10094;</button>
+            <img id="lightboxImg" src="" alt="Preview Mode Layout">
+            <button class="nav-btn next-btn" id="nextBtn">&#10095;</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Navbar DOM items
+            const menuToggle = document.getElementById("menuToggle");
+            const navLinks = document.getElementById("navLinks");
+            
+            // Gallery & Filtering arrays
+            const filterButtons = document.querySelectorAll(".filter-btn");
+            const galleryItems = Array.from(document.querySelectorAll(".gallery-item"));
+            
+            // Lightbox Modal nodes
+            const lightbox = document.getElementById("lightbox");
+            const lightboxImg = document.getElementById("lightboxImg");
+            const closeBtn = document.getElementById("closeBtn");
+            const prevBtn = document.getElementById("prevBtn");
+            const nextBtn = document.getElementById("nextBtn");
+
+            let visibleItems = [...galleryItems]; 
+            let currentImgIndex = 0;
+
+            // --- 1. RESPONSIVE MENU DRAWER TOGGLE ---
+            menuToggle.addEventListener("click", () => {
+                navLinks.classList.toggle("mobile-active");
+            });
+
+            // --- 2. CATEGORY FILTER LOGIC ---
+            filterButtons.forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    // Update active button state
+                    document.querySelector(".filter-btn.active").classList.remove("active");
+                    btn.classList.add("active");
+
+                    const targetCategory = btn.getAttribute("data-category");
+
+                    // Filter matching elements
+                    galleryItems.forEach(item => {
+                        const itemCategory = item.getAttribute("data-category");
+                        if (targetCategory === "all" || itemCategory === targetCategory) {
+                            item.style.display = "block";
+                        } else {
+                            item.style.display = "none";
+                        }
+                    });
+
+                    // Update tracking list for Lightbox navigation
+                    visibleItems = galleryItems.filter(item => item.style.display !== "none");
+                });
+            });
+
+            // --- 3. LIGHTBOX INTERACTIVE FUNCTIONALITY ---
+            const openLightbox = (index) => {
+                currentImgIndex = index;
+                const imgSrc = visibleItems[currentImgIndex].querySelector("img").src;
+                lightboxImg.src = imgSrc;
+                lightbox.classList.add("active");
+                document.body.style.overflow = "hidden"; // Prevent scrolling behind overlay
+            };
+
+            const closeLightbox = () => {
+                lightbox.classList.remove("active");
+                document.body.style.overflow = "auto";
+            };
+
+            const navigateImage = (direction) => {
+                if (direction === 'next') {
+                    currentImgIndex = (currentImgIndex + 1) % visibleItems.length;
+                } else if (direction === 'prev') {
+                    currentImgIndex = (currentImgIndex - 1 + visibleItems.length) % visibleItems.length;
+                }
+                lightboxImg.src = visibleItems[currentImgIndex].querySelector("img").src;
+            };
+
+            // Hook up grid click capture arrays
+            galleryItems.forEach(item => {
+                item.addEventListener("click", () => {
+                    const trackingIndex = visibleItems.indexOf(item);
+                    if (trackingIndex !== -1) openLightbox(trackingIndex);
+                });
+            });
+
+            // Lightbox control loops
+            closeBtn.addEventListener("click", closeLightbox);
+            nextBtn.addEventListener("click", () => navigateImage('next'));
+            prevBtn.addEventListener("click", () => navigateImage('prev'));
+
+            // Keyboard navigation controls
+            document.addEventListener("keydown", (e) => {
+                if (!lightbox.classList.contains("active")) return;
+                if (e.key === "Escape") closeLightbox();
+                if (e.key === "ArrowRight") navigateImage('next');
+                if (e.key === "ArrowLeft") navigateImage('prev');
+            });
+
+            // Click outside container image to hide overlay modal wrapper
+            lightbox.addEventListener("click", (e) => {
+                if (e.target === lightbox) closeLightbox();
+            });
+        });
+    </script>
+</body>
+</html>
